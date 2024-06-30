@@ -88,8 +88,14 @@ def root():
         </html>''' % (make_chart("cpu", rows, 0), make_chart("ram", rows, 1))
 
 def main():
-    host = ""
-    port = "8002"
-    app.run(host=host, port=port)
+    host = os.getenv("HOST")
+    if host is None:
+        print("$HOST not specified")
+        exit(1)
+    port = os.getenv("PORT")
+    if port is None:
+        print("$PORT not specified")
+        exit(1)
+    app.run(host=host, port=int(port))
     
 main()
