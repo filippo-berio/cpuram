@@ -63,10 +63,12 @@ def root():
         
     db_conn = sqlite3.connect("cpuram.db")
     db = db_conn.cursor()
-    offset = flask.request.args.get("offset")
-    if offset is None:
-        offset = 300
-    res = db.execute("select cpu, ram, ts from metrics where ts % ? = 0 order by ts desc limit ?", (offset, NUM_POINTS))
+    interval = flask.request.args.get("interval")
+    if not interval:
+        interval = flask.request.args.get("intervalSelect")
+    if not interval:
+        interval = 300
+    res = db.execute("select cpu, ram, ts from metrics where ts % ? = 0 order by ts desc limit ?", (interval, NUM_POINTS))
     rows = res.fetchall()
     rows.reverse()
     db_conn.close()
@@ -77,8 +79,16 @@ def root():
         <body>
         <script src="/chart.js"></script>
         <form action="/">
-        <input type="number" name="offset">
-        <button type="submit">set offset</button>
+        <input type="number" name="interval">
+        <select name="intervalSelect">
+            <option value="">choose interval</option>
+            <option value="60">1 minute</option>
+            <option value="300">5 minutes</option>
+            <option value="900">15 minutes</option>
+            <option value="1800">30 minutes</option>
+            <option value="3600">1 hour</option>
+        </select>
+        <button type="submit">set interval</button>
         
         </form>
         <canvas id="cpu"></canvas>
