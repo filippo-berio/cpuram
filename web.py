@@ -6,7 +6,7 @@ import flask
 import base64
 from datetime import datetime
 
-NUM_POINTS = 20
+NUM_POINTS = 100
 
 app = flask.Flask("cpuram")
 
