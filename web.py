@@ -76,6 +76,11 @@ def root():
         <head><title>CpuRam</title></head>
         <body>
         <script src="/chart.js"></script>
+        <form action="/">
+        <input type="number" name="offset">
+        <button type="submit">set offset</button>
+        
+        </form>
         <canvas id="cpu"></canvas>
         <br>
         <canvas id="ram"></canvas>
