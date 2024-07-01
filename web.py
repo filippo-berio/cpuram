@@ -5,10 +5,19 @@ import socketserver
 import flask
 import base64
 from datetime import datetime
+from flask import send_file
 
 NUM_POINTS = 100
 
 app = flask.Flask("cpuram")
+
+@app.route("/favicon.png")
+def favicon():
+    return send_file("./favicon.png", "image/png")
+    with open('./favicon.png', 'r') as file:
+        resp = flask.Response(file.read())
+        resp.headers["Content-Type"] = "image/png"
+        return resp
 
 @app.route("/chart.js")
 def chartjs():
@@ -75,7 +84,10 @@ def root():
 
     return '''
         <html>
-        <head><title>CpuRam</title></head>
+        <head>
+        <title>CpuRam</title>
+        <link rel="icon" type="image/png" href="/favicon.png"/>
+        </head>
         <body>
         <script src="/chart.js"></script>
         <form action="/">
