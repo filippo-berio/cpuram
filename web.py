@@ -35,6 +35,7 @@ def make_chart(label, rows, param_order_in_rows):
           }]
         },
         options: {
+          animation: { duration: 0 },
           scales: {
             y: {
               min: 0, max: 1
@@ -46,7 +47,6 @@ def make_chart(label, rows, param_order_in_rows):
     
 @app.route("/")
 def root():
-    
     auth = flask.request.headers.get("Authorization")
     if auth is None:
         resp = flask.Response()
@@ -68,7 +68,7 @@ def root():
         interval = flask.request.args.get("intervalSelect")
     if not interval:
         interval = 300
-    res = db.execute("select cpu, ram, ts from metrics where ts % ? = 0 order by ts desc limit ?", (interval, NUM_POINTS))
+    res = db.execute("select cpu, ram, ts + 5*3600 from metrics where ts % ? = 0 order by ts desc limit ?", (interval, NUM_POINTS))
     rows = res.fetchall()
     rows.reverse()
     db_conn.close()
