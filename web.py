@@ -26,11 +26,30 @@ def chartjs():
         resp.headers["Content-Type"] = "text/javascript"
         return resp
 
-
-def make_chart(label, rows, param_order_in_rows):
-    num_points = min(NUM_POINTS, len(rows))
-    labels = [f"'{datetime.utcfromtimestamp(rows[i][2]).strftime('%d.%m %H:%M:%S')}'" for i in range(num_points)]
-    points = [str(rows[i][param_order_in_rows]) for i in range(num_points)]
+def ts_to_dt(ts):
+    return f"'{datetime.utcfromtimestamp(ts).strftime('%d.%m %H:%M:%S')}'"
+    
+def make_chart(label, rows, interval, param_order_in_rows, avg=False):
+    interval = int(interval)
+    num_points = min(NUM_POINTS, len(rows) // interval)
+    
+    labels =  []
+    points = []
+    r = len(rows)-1
+    while r >= 0 and len(labels) < num_points:
+        labels.append(ts_to_dt(rows[r][2]))
+        sum = 0
+        if avg:
+            for i in range(interval):
+                sum += rows[r][param_order_in_rows]
+                r -= 1
+            points.append(str(sum/interval))
+        else:
+            points.append(str(rows[r][param_order_in_rows]))
+            r -= interval
+    
+    labels.reverse()
+    points.reverse()
     
     return '''
     new Chart(document.getElementById('%s'), {
@@ -44,6 +63,11 @@ def make_chart(label, rows, param_order_in_rows):
           }]
         },
         options: {
+          plugins: {
+            customCanvasBackgroundColor: {
+              color: '#222222',
+            }
+          },
           animation: { duration: 0 },
           scales: {
             y: {
@@ -72,35 +96,64 @@ def root():
         
     db_conn = sqlite3.connect("cpuram.db")
     db = db_conn.cursor()
+    interval_select = flask.request.args.get("intervalSelect")
     interval = flask.request.args.get("interval")
-    if not interval:
-        interval = flask.request.args.get("intervalSelect")
-    if not interval:
-        interval = 300
-    res = db.execute("select cpu, ram, ts + 5*3600 from metrics where ts % ? = 0 order by ts desc limit ?", (interval, NUM_POINTS))
+    if interval:
+        interval_select = None
+    
+    interval_sql = interval
+    if not interval_sql:
+        interval_sql = interval_select
+    if not interval_sql:
+        interval_sql = 300
+        
+    res = db.execute("select cpu, ram, ts + 5*3600 from metrics order by ts desc limit ?", (int(interval_sql) * NUM_POINTS, ))
     rows = res.fetchall()
     rows.reverse()
     db_conn.close()
 
+    mode = flask.request.args.get("mode")
+    if not mode:
+        mode = "avg"
+    modes = ["avg", "absolute"]
+    mode_html = ""
+    for m in modes:
+        checked = ""
+        if mode == m:
+            checked = "checked"
+        mode_html += f'<label for="{m}">{m}</label><input type="radio" {checked} name="mode" id="{m}" value="{m}">'
+  
+    interval_options = {
+        60: "1 minute",
+        300: "5 minutes",
+        900: "15 minutes",
+        1800: "30 minutes",
+        3600: "1 hour",
+    }
+    options_html = ""
+    for v, t in interval_options.items():
+        selected = ""
+        if str(v) == str(interval_select):
+            selected = "selected"
+        options_html += f"<option value='{v}' {selected}>{t}</option>"
+        
     return '''
         <html>
         <head>
         <title>CpuRam</title>
         <link rel="icon" type="image/png" href="/favicon.png"/>
         </head>
-        <body>
+        <body style="background-color:#222222; color:#FFFFFF">
         <script src="/chart.js"></script>
         <form action="/">
-        <input type="number" name="interval">
-        <select name="intervalSelect">
-            <option value="">choose interval</option>
-            <option value="60">1 minute</option>
-            <option value="300">5 minutes</option>
-            <option value="900">15 minutes</option>
-            <option value="1800">30 minutes</option>
-            <option value="3600">1 hour</option>
-        </select>
-        <button type="submit">set interval</button>
+            %s
+            
+            <input type="number" name="interval" value="%s">
+            <select name="intervalSelect">
+                <option value="">choose interval</option>
+                %s
+            </select>
+            <button type="submit">set interval</button>
         
         </form>
         <canvas id="cpu"></canvas>
@@ -112,7 +165,9 @@ def root():
         %s
         </script>
         </body>
-        </html>''' % (make_chart("cpu", rows, 0), make_chart("ram", rows, 1))
+        </html>''' % (mode_html, interval, options_html, 
+            make_chart("cpu", rows, interval_sql, 0, mode=="avg"), 
+            make_chart("ram", rows, interval_sql, 1, mode=="avg"))
 
 def main():
     host = os.getenv("HOST")
